@@ -28,9 +28,9 @@ async def read_camera():
     return FileResponse('camera.html')
 
 # 5. 定义 API 接口：访问购物车游戏页面
-@app.get("/cart_game.html")
+@app.get("cat_game.html")
 async def read_cart_game():
-    return FileResponse('cart_game.html')
+    return FileResponse('cat_game.html')
 
 # 6. 挂载静态文件
 # 将当前目录挂载到 /static 路径下（如果需要）
