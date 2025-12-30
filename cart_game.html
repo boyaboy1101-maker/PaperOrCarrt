@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <title> 真棒挑战 </title>
+    <meta
+      name="description"
+      content="在 30 秒里帮猫猫在萝卜和纸巾之间做选择，选对就被夸“真棒”!"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="style.css" />
+    
+    <!-- 资源预加载 -->
+    <link rel="preload" href="cart_app.js" as="script">
+    <link rel="preload" href="data/pic/cat.png" as="image">
+    <link rel="preload" href="data/pic/cat1.png" as="image">
+    <link rel="preload" href="data/pic/cat_left.png" as="image">
+    <link rel="preload" href="data/pic/cat_right.png" as="image">
+    <link rel="preload" href="style.css" as="style">
+    
+    <style>
+      #cart-player, #cart-player-left, #cart-player-right {
+        position: absolute;
+        width: 140px; /* 调整大小与选项卡片一致 */
+        height: 140px;
+        object-fit: contain;
+        z-index: 100;
+        /* transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 切换 display 时 transition 无效，且为了彻底隐藏不需要过渡 */
+        transition: top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* 仅保留位置移动的过渡 */
+        pointer-events: none; /* 防止点击购物车触发其他事件 */
+        /* 初始状态隐藏，游戏开始后显示 */
+        display: none; 
+        /* 尝试通过混合模式去除白色背景 (前提是背景足够白且周围环境合适) */
+        mix-blend-mode: multiply;
+      }
+      
+      /* 在游戏界面显示时，只有主图默认显示，其他保持隐藏 */
+      #screen-play.active #cart-player {
+        display: block;
+      }
+      
+      /* 当需要显示向左或向右的图片时，通过 JS 添加 class 来控制 */
+      #screen-play.active #cart-player.hidden {
+        display: none;
+      }
+      
+      #screen-play.active #cart-player-left.active,
+      #screen-play.active #cart-player-right.active {
+        display: block;
+      }
+      
+      /* 默认情况下，left 和 right 应该是隐藏的 */
+      #cart-player-left, #cart-player-right {
+        display: none;
+      }
+      
+      /* 确保游戏区域是相对定位，以便猫咪绝对定位 */
+      #screen-play {
+        position: relative;
+      }
+      
+      /* 将萝卜和纸巾图片向下调整 */
+      .card-row {
+        margin-top: 225px; /* 从 300px 减少 75px (0.5个单位)，即向上移动 0.5 个单位 */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="game-shell" aria-label="萝卜 vs 纸巾：真棒挑战">
+        <div class="bg-bubble b1" aria-hidden="true"></div>
+        <div class="bg-bubble b2" aria-hidden="true"></div>
+
+        <header class="top-bar">
+          <div class="logo-group">
+            <div class="logo-avatar" aria-hidden="true">
+              <img src="data/pic/cat.png" alt="猫咪" />
+            </div>
+            <div class="logo-title">
+              <div class="logo-title-main">萝卜 vs 纸巾 (真棒挑战)</div>
+              <div class="logo-title-sub">选对就被夸「真棒」的小测试</div>
+            </div>
+          </div>
+          <button
+            id="mute-toggle"
+            class="icon-button"
+            type="button"
+            aria-label="切换音效开关"
+          >
+            <span id="mute-icon" class="material-symbols-outlined">volume_up</span>
+          </button>
+        </header>
+
+        <main class="screen-container">
+          <!-- Start screen -->
+          <section
+            id="screen-start"
+            class="screen active"
+            aria-label="开始界面"
+          >
+            <div class="hero-cat">
+              <div class="hero-cat-inner">
+                <img src="data/pic/cat.png" alt="抱着萝卜纸巾纠结中的可爱猫咪插画" />
+              </div>
+            </div>
+            <div class="start-title">
+              <h1>真棒挑战</h1>
+              <p>
+                控制猫咪在
+                <span class="highlight">萝卜</span>
+                和
+                <span class="highlight">纸巾</span>
+                之间移动！
+              </p>
+            </div>
+            <div class="start-actions">
+              <button id="btn-start" type="button" class="primary-btn">
+                <span class="material-symbols-outlined">shopping_cart</span>
+                <span>开始挑战</span>
+              </button>
+              <p class="tip">
+                点击选项，猫咪就会飞过去哦～
+              </p>
+            </div>
+          </section>
+
+          <!-- Play screen -->
+          <section id="screen-play" class="screen" aria-label="游戏界面">
+            <div class="hud" role="status" aria-live="polite">
+              <div class="hud-item time">
+                <span class="hud-label">时间</span>
+                <span class="hud-value"><span id="time-value">30.0</span>s</span>
+              </div>
+              <div class="hud-item score">
+                <span class="hud-label">分数</span>
+                <span class="hud-value" id="score-value">0</span>
+              </div>
+              <div class="hud-item combo">
+                <span class="hud-label">连击</span>
+                <span class="hud-value" id="combo-value">0</span>
+              </div>
+            </div>
+
+            <div id="question-text" class="question">
+              帮猫猫选出主人心里的那个答案～
+            </div>
+            
+            <!-- 购物车图片 -->
+            <img id="cart-player" src="data/pic/cat1.png" alt="购物车" />
+            <img id="cart-player-left" src="data/pic/cat_left.png" alt="购物车向左" />
+            <img id="cart-player-right" src="data/pic/cat_right.png" alt="购物车向右" />
+
+            <div class="card-row" aria-label="选择区域">
+              <button
+                id="card-left"
+                type="button"
+                class="choice-card choice-card--carrot"
+                data-type="carrot"
+                role="button"
+                aria-label="选择萝卜"
+              >
+                <div class="card-illust"></div>
+                <div class="card-label">萝卜<span class="en">carrot</span></div>
+              </button>
+              <button
+                id="card-right"
+                type="button"
+                class="choice-card choice-card--tissue"
+                data-type="tissue"
+                role="button"
+                aria-label="选择纸巾"
+              >
+                <div class="card-illust"></div>
+                <div class="card-label">纸巾<span class="en">tissue</span></div>
+              </button>
+            </div>
+
+            <div id="hint-text" class="hint-text">
+              看看你能被夸几次「真棒」？
+            </div>
+          </section>
+
+          <!-- End screen -->
+          <section id="screen-end" class="screen" aria-label="结算界面">
+            <h2>本局结果</h2>
+            <p class="score-large"><span id="final-score">0</span> 分</p>
+            <p class="score-detail">
+              本局连击最高
+              <span id="best-combo">0</span>
+              ，被夸了
+              <span id="praise-count">0</span>
+              次
+            </p>
+            <p class="score-detail">
+              时间奖励
+              <span id="time-bonus">0</span>
+              分（剩余
+              <span id="remain-sec">0</span>
+              s）
+            </p>
+            <p class="score-detail">
+              你的历史最高分：<span id="best-score-overall">0</span>
+            </p>
+            <div class="end-actions">
+              <button id="btn-restart" type="button" class="primary-btn">
+                <span class="material-symbols-outlined">replay</span>
+                <span>再来一局</span>
+              </button>
+              <button id="btn-share" type="button" class="secondary-btn">
+                <span class="material-symbols-outlined">ios_share</span>
+                <span>炫耀一下</span>
+              </button>
+            </div>
+            <p class="tip small">
+              小提示：可以截图或用浏览器分享，把你的「真棒次数」发给朋友～
+            </p>
+          </section>
+
+          <!-- Praise overlay -->
+          <div id="overlay-praise" aria-hidden="true">
+            <div class="praise-text">真棒！</div>
+            <div class="combo-fire">
+              <span class="material-symbols-outlined">local_fire_department</span>
+              <span id="combo-fire-text">继续保持～</span>
+            </div>
+          </div>
+
+          <div id="toast" class="toast" aria-live="polite"></div>
+        </main>
+      </div>
+    </div>
+
+    <script src="cart_app.js"></script>
+  </body>
+</html>
